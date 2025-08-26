@@ -1,3 +1,5 @@
+###Método multiprocesamiento
+
 import requests
 import multiprocessing
 import time

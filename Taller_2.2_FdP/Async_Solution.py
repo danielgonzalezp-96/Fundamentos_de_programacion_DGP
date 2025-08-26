@@ -1,3 +1,5 @@
+##Método asíncrono
+
 import asyncio
 import time
 import aiohttp
