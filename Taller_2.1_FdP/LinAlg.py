@@ -168,6 +168,7 @@ class Vector:
         dot = self.dot(other)
         cos_theta = dot / (mag1 * mag2)
         cos_theta = max(-1.0, min(1.0, cos_theta))
+        return math.acos(cos_theta)
 
 
 class Matrix:
@@ -198,6 +199,15 @@ class Matrix:
             raise TypeError("Data debe ser una secuencia de secuencias de números (int/float).") from e
         self._nrows = len(self._data)
         self._ncols = ncols
+    
+    def _check_same_shape(self, other: 'Matrix', op: str = "operación") -> None:
+        if not isinstance(other, Matrix):
+            raise TypeError(f"El otro operando debe ser Matrix para {op}.")
+        if self._nrows != other._nrows or self._ncols != other._ncols:
+            raise ValueError(
+                f"Formas incompatibles para {op}: "
+                f"{(self._nrows, self._ncols)} != {(other._nrows, other._ncols)}."
+        )
     
     def __str__(self) -> str:
         """Representación en string de la matriz."""
@@ -240,15 +250,17 @@ class Matrix:
     
     def __add__(self, other: 'Matrix') -> 'Matrix':
         """Suma de matrices usando el operador +."""
-        self._check_same_shape(other, "suma")
-        return Matrix([[a + b for a, b in zip(row_a, row_b)]
-            for row_a, row_b in zip(self._data, other._data)])
+        if not isinstance(other, Matrix):
+            return NotImplemented
+        self._check_same_shape(other, op="suma")
+        return Matrix([[a + b for a, b in zip(ra, rb)] for ra, rb in zip(self._data, other._data)])
     
     def __sub__(self, other: 'Matrix') -> 'Matrix':
         """Resta de matrices usando el operador -."""
-        self._check_same_shape(other, "resta")
-        return Matrix([[a - b for a, b in zip(row_a, row_b)]
-            for row_a, row_b in zip(self._data, other._data)])
+        if not isinstance(other, Matrix):
+            return NotImplemented
+        self._check_same_shape(other, op="resta")
+        return Matrix([[a - b for a, b in zip(ra, rb)] for ra, rb in zip(self._data, other._data)])
     
     def __mul__(self, other: Union['Matrix', 'Vector', int, float]) -> Union['Matrix', 'Vector']:
         """Multiplicación de matrices/vectores/escalares usando el operador *."""
@@ -327,28 +339,19 @@ class Matrix:
         eps = 1e-12
         
         for i in range(n):
-            pivot_row = max(range(i, n), key=lambda r: abs(A[r][i]))
-            pivot = A[pivot_row][i]
-            
-            if abs(pivot) <= eps:
+            p = max(range(i, n), key=lambda r: abs(A[r][i]))
+            if abs(A[p][i]) <= eps:
                 return 0.0
-        
-            if pivot_row != i:
-                A[i], A[pivot_row] = A[pivot_row], A[i]
+            if p != i:
+                A[i], A[p] = A[p], A[i]
                 sign *= -1.0
-            
-            inv_pivot = 1.0 / A[i][i]
             for r in range(i + 1, n):
-                factor = A[r][i] * inv_pivot
-                if abs(factor) <= eps:
-                    continue
-            for c in range(i, n):
-                A[r][c] -= factor * A[i][c]
-                
+                factor = A[r][i] / A[i][i]
+                for c in range(i, n):
+                    A[r][c] -= factor * A[i][c]
         det = sign
         for i in range(n):
             det *= A[i][i]
-            
         rounded = round(det)
         return int(rounded) if abs(det - rounded) <= 1e-9 else det
     
@@ -458,7 +461,11 @@ def dot_product(v1: Vector, v2: Vector) -> float:
     Returns:
         El producto punto como un número
     """
-    pass
+    if not isinstance(v1, Vector) or not isinstance(v2, Vector):
+        raise TypeError("Ambos argumentos deben ser Vector.")
+    if len(v1) != len(v2):
+        raise ValueError("Dimensiones incompatibles para producto punto.")
+    return sum(a * b for a, b in zip(v1._data, v2._data))
 
 
 def magnitude(v: Vector) -> float:
@@ -471,7 +478,9 @@ def magnitude(v: Vector) -> float:
     Returns:
         La magnitud del vector
     """
-    return math.sqrt(sum(x**2 for x in v))
+    if not isinstance(v, Vector):
+        raise TypeError("El argumento debe ser un Vector.")
+    return math.sqrt(sum(x*x for x in v._data))
 
 
 def normalize(v: Vector) -> Vector:
@@ -484,7 +493,12 @@ def normalize(v: Vector) -> Vector:
     Returns:
         Un nuevo vector normalizado
     """
-    pass
+    if not isinstance(v, Vector):
+        raise TypeError("El argumento debe ser Vector.")
+    m = magnitude(v)
+    if m == 0.0:
+        raise ValueError("No se puede normalizar el vector cero.")
+    return Vector([x / m for x in v._data])
 
 
 def cross_product(v1: Vector, v2: Vector) -> Vector:
@@ -498,7 +512,17 @@ def cross_product(v1: Vector, v2: Vector) -> Vector:
     Returns:
         Un nuevo vector resultado del producto cruz
     """
-    pass
+    if not isinstance(v1, Vector) or not isinstance(v2, Vector):
+        raise TypeError("Ambos argumentos deben ser Vector.")
+    if len(v1) != 3 or len(v2) != 3:
+        raise ValueError("El producto cruz solo está definido para vectores 3D.")
+    a1, a2, a3 = v1._data
+    b1, b2, b3 = v2._data
+    return Vector([
+        a2 * b3 - a3 * b2,
+        a3 * b1 - a1 * b3,
+        a1 * b2 - a2 * b1
+    ])
 
 
 def angle_between(v1: Vector, v2: Vector) -> float:
@@ -512,7 +536,17 @@ def angle_between(v1: Vector, v2: Vector) -> float:
     Returns:
         El ángulo en radianes
     """
-    pass
+    if not isinstance(v1, Vector) or not isinstance(v2, Vector):
+        raise TypeError("Ambos argumentos deben ser Vector.")
+    if len(v1) != len(v2):
+        raise ValueError("Dimensiones incompatibles para cálculo de ángulo.")
+    mag1 = magnitude(v1)
+    mag2 = magnitude(v2)
+    if mag1 == 0.0 or mag2 == 0.0:
+        raise ValueError("No se puede calcular el ángulo con el vector cero.")
+    cos_theta = dot_product(v1, v2) / (mag1 * mag2)
+    cos_theta = max(-1.0, min(1.0, cos_theta))
+    return math.acos(cos_theta)
 
 
 # =============================================================================
