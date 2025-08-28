@@ -3,7 +3,7 @@ Ejemplo de uso de la librería de álgebra lineal
 ===============================================
 
 Este archivo muestra cómo usar las clases Vector y Matrix,
-y las funciones de la librería LAC (Linear Algebra Course).
+y las funciones de la librería LAL (Librería de Algebra Lineal).
 
 NOTA: Este archivo es solo para referencia. Las funciones no están implementadas
 y devolverán errores hasta que los estudiantes las completen.
